@@ -1,3 +1,1036 @@
-<ion-app>
-  <ion-router-outlet></ion-router-outlet>
-</ion-app>
+<ion-content [fullscreen]="true" class="app-content">
+  <div class="phone-wrapper" (click)="clearSwipeOnOutside($event)">
+
+    <div *ngIf="currentSection === 'home'" class="section home-section">
+      <div class="app-header">
+        <div class="header-logo">
+          <span class="logo-text">Brainflip</span>
+        </div>
+        <div class="header-right-actions">
+          <button *ngIf="isPremium" class="game-icon-btn" (click)="goGameFeatures()">
+            <ion-icon name="game-controller-outline"></ion-icon>
+          </button>
+          <button class="premium-header-btn" [class.active-premium]="isPremium" (click)="goPremium()">
+            <ion-icon name="star-outline"></ion-icon>
+            {{ isPremium ? 'Premium' : 'Go Premium' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="home-content">
+        <div class="home-welcome-row">
+          <h1 class="home-title">Welcome!</h1>
+        </div>
+        <div class="search-wrap">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input [(ngModel)]="homeSearch" class="search-input" placeholder="Search notes, flashcards..." type="text" />
+        </div>
+
+        <div *ngIf="homeSearch.trim().length > 0" class="home-search-results">
+          <div class="section-header-row">
+            <span class="section-label">Search Results</span>
+          </div>
+          <div *ngIf="homeFilteredNotes.length === 0" class="empty-mini">No notes found.</div>
+          <div *ngFor="let note of homeFilteredNotes; trackBy: trackById" class="home-note-card">
+            <div class="home-note-body" (click)="editNote(note, 'home')">
+              <div class="home-note-title">{{ note.title }}</div>
+              <div class="home-note-preview">{{ note.content | slice:0:120 }}{{ note.content.length > 120 ? '…' : '' }}</div>
+            </div>
+            <button class="spark-mini-btn" (click)="sparkNote(note); $event.stopPropagation()">
+              <ion-icon name="sparkles-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="homeSearch.trim().length === 0">
+          <div class="quick-grid">
+            <button class="quick-card qc-favorites" (click)="goFavorites()">
+              <ion-icon name="star" class="qc-icon qc-star"></ion-icon>
+              <span>Favorites</span>
+            </button>
+            <button class="quick-card qc-practice" (click)="goFlashcardSets()">
+              <ion-icon name="card-outline" class="qc-icon qc-brain"></ion-icon>
+              <span>Practice</span>
+            </button>
+            <button class="quick-card qc-folders" (click)="goFolders()">
+              <ion-icon name="folder-outline" class="qc-icon qc-folder"></ion-icon>
+              <span>Folders</span>
+            </button>
+          </div>
+
+          <div class="home-section-block">
+            <div class="section-header-row">
+              <span class="section-label">Recent Notes</span>
+              <button class="view-all-btn" (click)="goNotes()">View all</button>
+            </div>
+            <div *ngIf="notes.length === 0" class="empty-mini">No notes yet. Tap + to create one!</div>
+            <div *ngFor="let note of recentNotes; trackBy: trackById" class="home-note-card">
+              <div class="home-note-body" (click)="editNote(note, 'home')">
+                <div class="home-note-title">{{ note.title }}</div>
+                <div class="home-note-preview">{{ note.content | slice:0:42 }}{{ note.content.length > 42 ? '…' : '' }}</div>
+              </div>
+              <button class="spark-mini-btn" (click)="sparkNote(note); $event.stopPropagation()">
+                <ion-icon name="sparkles-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="home-section-block">
+            <div class="section-header-row">
+              <span class="section-label">
+                <ion-icon name="card-outline" style="vertical-align:middle;margin-right:4px;font-size:15px"></ion-icon>
+                Flashcard Preview
+              </span>
+              <button class="practice-pill-btn" (click)="goFlashcardSets()">Practice</button>
+            </div>
+            <div *ngIf="allFlashcards.length === 0" class="empty-mini">No flashcards yet. Spark a note!</div>
+            <div *ngIf="allFlashcards.length > 0" class="fc-preview-card" (click)="goFlashcardSets()">
+              <span class="fc-preview-q">{{ allFlashcards[0]?.question }}</span>
+              <span class="fc-preview-hint">Tap to practice →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'favorites'" class="section notes-section">
+      <div class="section-top-header">
+        <button class="icon-btn back-btn" (click)="goHome()">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <h2 class="section-title">Favorites</h2>
+      </div>
+      <div class="notes-list-content">
+        <div *ngIf="favoriteNotes.length === 0" class="empty-state">
+          <ion-icon name="star-outline" class="empty-icon"></ion-icon>
+          <p>No favorites yet. Swipe a note and tap ⭐!</p>
+        </div>
+
+        <div *ngFor="let note of favoriteNotes; trackBy: trackById" class="note-swipe-wrapper"
+          [class.swiped]="isSwiped(note.id)"
+          (touchstart)="onSwipeStart($event)"
+          (touchend)="onSwipeEnd(note.id, $event)"
+          (mousedown)="onSwipeStart($event)"
+          (mouseup)="onSwipeEnd(note.id, $event)">
+
+          <div class="swipe-actions">
+            <button class="swipe-btn fav-btn" (click)="toggleFavorite(note); $event.stopPropagation()">
+              <ion-icon [name]="note.favorite ? 'star' : 'star-outline'"></ion-icon>
+            </button>
+            <button class="swipe-btn del-btn" (click)="deleteNote(note.id); $event.stopPropagation()">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+            <button class="swipe-btn menu-btn" (click)="openMoveNoteMenu(note); $event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </button>
+          </div>
+
+          <div class="note-card" (click)="!isSwiped(note.id) && editNote(note, 'favorites')">
+            <div class="note-card-body">
+              <div class="note-card-top">
+                <div class="note-card-title">{{ note.title }}</div>
+              </div>
+              <div class="note-card-preview">{{ note.content | slice:0:70 }}{{ note.content.length > 70 ? '…' : '' }}</div>
+              <div class="note-card-meta">{{ formatDate(note.editedAt) }}</div>
+            </div>
+            <div class="note-card-actions">
+              <button class="nc-action-btn spark-btn" (click)="$event.stopPropagation(); sparkNote(note)">
+                <ion-icon name="sparkles-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'notes'" class="section notes-section">
+      <div class="section-top-header">
+        <h2 class="section-title">Notes</h2>
+      </div>
+      <div class="search-wrap" style="margin: 0 16px 12px;">
+        <ion-icon name="search-outline" class="search-icon"></ion-icon>
+        <input [(ngModel)]="notesSearch" class="search-input" placeholder="Search notes..." type="text" />
+      </div>
+
+      <div class="notes-list-content">
+        <div *ngIf="filteredNotes.length === 0" class="empty-state">
+          <ion-icon name="document-outline" class="empty-icon"></ion-icon>
+          <p>No notes yet. Tap + to create one!</p>
+        </div>
+
+        <div *ngFor="let note of filteredNotes; trackBy: trackById" class="note-swipe-wrapper"
+          [class.swiped]="isSwiped(note.id)"
+          (touchstart)="onSwipeStart($event)"
+          (touchend)="onSwipeEnd(note.id, $event)"
+          (mousedown)="onSwipeStart($event)"
+          (mouseup)="onSwipeEnd(note.id, $event)">
+
+          <div class="swipe-actions">
+            <button class="swipe-btn fav-btn" (click)="toggleFavorite(note); $event.stopPropagation()">
+              <ion-icon [name]="note.favorite ? 'star' : 'star-outline'"></ion-icon>
+            </button>
+            <button class="swipe-btn del-btn" (click)="deleteNote(note.id); $event.stopPropagation()">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+            <button class="swipe-btn menu-btn" (click)="openMoveNoteMenu(note); $event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </button>
+          </div>
+
+          <div class="note-card" (click)="!isSwiped(note.id) && editNote(note, 'notes')">
+            <div class="note-card-body">
+              <div class="note-card-top">
+                <div class="note-card-title">{{ note.title }}</div>
+              </div>
+              <div class="note-card-preview">{{ note.content | slice:0:70 }}{{ note.content.length > 70 ? '…' : '' }}</div>
+              <div class="note-card-meta">{{ formatDate(note.editedAt) }} · {{ note.folder }}</div>
+            </div>
+            <div class="note-card-actions">
+              <button class="nc-action-btn spark-btn" (click)="$event.stopPropagation(); sparkNote(note)">
+                <ion-icon name="sparkles-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'noteEditor'" class="section editor-section">
+      <div class="editor-header">
+        <button class="icon-btn" (click)="autoSaveAndBack()">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <div class="editor-actions">
+          <button class="editor-fav-btn" [class.active-fav]="editorFavorite" (click)="toggleEditorFav()">
+            <ion-icon [name]="editorFavorite ? 'star' : 'star-outline'"></ion-icon>
+          </button>
+          <button class="editor-action-btn spark-action" (click)="sparkCurrentNote()">
+            <ion-icon name="sparkles-outline"></ion-icon>
+          </button>
+          <button class="editor-action-btn save-action" (click)="saveNote()">Save</button>
+          <div class="dot-menu-wrapper">
+            <button class="icon-btn" (click)="toggleDotMenu(); $event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </button>
+            <div *ngIf="showDotMenu" class="dot-menu-panel" (click)="$event.stopPropagation()">
+              <div class="dot-menu-header">
+                <span class="dot-menu-title">Save to Folder</span>
+                <button class="new-folder-pill" (click)="showNewFolderInMenu = !showNewFolderInMenu">+ New</button>
+              </div>
+              <div *ngIf="showNewFolderInMenu" class="new-folder-row">
+                <input [(ngModel)]="newFolderInMenu" class="new-folder-input"
+                  placeholder="Folder name..."
+                  (keydown.enter)="addFolderFromMenu()" />
+                <button class="new-folder-add-btn" (click)="addFolderFromMenu()">Add</button>
+              </div>
+              <button *ngFor="let fn of allFolderNames"
+                class="dot-folder-item"
+                [class.active-folder-item]="editorFolder === fn"
+                (click)="setEditorFolder(fn)">
+                <ion-icon name="folder-outline" class="dot-folder-icon"></ion-icon>
+                {{ fn }}
+                <ion-icon *ngIf="editorFolder === fn" name="checkmark-outline" class="dot-check-icon"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="editor-folder-tag">
+        <ion-icon name="folder-outline"></ion-icon> {{ editorFolder }}
+      </div>
+      <div class="editor-body">
+        <input [(ngModel)]="editorTitle" class="editor-title-input" placeholder="Note title..." type="text" />
+        <textarea [(ngModel)]="editorContent" class="editor-textarea"
+          placeholder="Start writing… e.g. 'Photosynthesis: the process by which plants make food'"
+          rows="20"></textarea>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'flashcardSets'" class="section flashcards-section">
+      <div class="fc-section-header">
+        <h2 class="section-title">Flashcards</h2>
+      </div>
+      <div *ngIf="fcGroups.length === 0" class="empty-state">
+        <ion-icon name="card-outline" class="empty-icon"></ion-icon>
+        <p>No flashcard sets yet.</p>
+        <p class="empty-sub">Go to Notes and tap <ion-icon name="sparkles-outline" style="vertical-align:middle;font-size:14px"></ion-icon> on any note to auto-generate flashcards!</p>
+      </div>
+      <div *ngIf="fcGroups.length > 0" class="fc-sets-list">
+        <div *ngFor="let g of fcGroups; trackBy: trackByNoteId"
+          class="fc-set-card"
+          (click)="openFlashcardSet(g.noteId)">
+          <div class="fc-set-card-body">
+            <div class="fc-set-icon">
+              <ion-icon name="card-outline"></ion-icon>
+            </div>
+            <div class="fc-set-info">
+              <div class="fc-set-title">{{ g.label }}</div>
+              <div class="fc-set-count">{{ g.fcs.length }} card{{ g.fcs.length !== 1 ? 's' : '' }}</div>
+            </div>
+          </div>
+          <ion-icon name="chevron-forward-outline" class="fc-set-chevron"></ion-icon>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'flashcards'" class="section flashcards-section">
+      <div class="fc-review-header">
+        <button class="icon-btn" (click)="backToFlashcardSets()">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <span class="fc-review-title">{{ activeGroup?.label }}</span>
+        <div class="fc-header-actions">
+          <button class="fc-icon-action-btn edit-fc-btn" (click)="openEditFC()" title="Edit card">
+            <ion-icon name="pencil-outline"></ion-icon>
+          </button>
+          <button class="fc-icon-action-btn del-fc-btn" (click)="deleteCurrentFC()" title="Delete card">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+          <button class="fc-icon-action-btn add-fc-btn" (click)="openAddFlashcardManual()" title="Add card">
+            <ion-icon name="add-outline"></ion-icon>
+          </button>
+          <button class="fc-icon-action-btn timer-btn" [class.timer-active]="timerActive" (click)="openTimerPicker()">
+            <ion-icon name="timer-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="showTimerPicker" class="timer-picker-bar">
+        <span class="timer-picker-label">Auto-next:</span>
+        <button class="timer-pick-btn" [class.active-timer-pick]="selectedTimerSeconds === 5"
+          (click)="setTimerDuration(5)">5s</button>
+        <button class="timer-pick-btn" [class.active-timer-pick]="selectedTimerSeconds === 10"
+          (click)="setTimerDuration(10)">10s</button>
+        <button class="timer-cancel-btn" (click)="cancelTimer()">Off</button>
+      </div>
+
+      <div *ngIf="timerActive" class="timer-bar">
+        <ion-icon name="timer-outline"></ion-icon>
+        <span>{{ timerDisplay }}</span>
+        <div class="timer-progress-wrap">
+          <div class="timer-progress-fill" [style.width.%]="timerProgressPercent"></div>
+        </div>
+      </div>
+
+      <div *ngIf="activeGroupFCs.length > 0" class="fc-content-wrap">
+        <div class="fc-progress">
+          <span class="fc-counter">Card {{ groupCardIndex + 1 }} of {{ activeGroupFCs.length }}</span>
+          <div class="fc-progress-bar">
+            <div class="fc-progress-fill"
+              [style.width.%]="((groupCardIndex + 1) / activeGroupFCs.length) * 100"></div>
+          </div>
+        </div>
+
+        <div class="flashcard" [class.flipped]="groupCardFlipped"
+          [ngClass]="'design-' + selectedDesign"
+          [style.--card-custom-color]="activeGroupFCs[groupCardIndex]?.color || '#ffffff'"
+          (click)="flipGroupCard()">
+          <div class="card-inner">
+            <div class="card-front" [style.background]="activeGroupFCs[groupCardIndex]?.color && activeGroupFCs[groupCardIndex]?.color !== '#ffffff' ? activeGroupFCs[groupCardIndex]?.color : '#fff'">
+              <p class="card-text">{{ activeGroupFCs[groupCardIndex]?.question }}</p>
+              <span class="card-hint">Tap to flip</span>
+            </div>
+            <div class="card-back" [style.background]="activeGroupFCs[groupCardIndex]?.color && activeGroupFCs[groupCardIndex]?.color !== '#ffffff' ? activeGroupFCs[groupCardIndex]?.color : null">
+              <p class="card-text">{{ activeGroupFCs[groupCardIndex]?.answer }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="fc-nav-btns">
+          <button class="fc-nav-btn prev-btn" (click)="prevGroupCard()"
+            [disabled]="groupCardIndex === 0">Previous</button>
+          <button class="fc-nav-btn next-btn" (click)="nextGroupCard()"
+            [disabled]="groupCardIndex === activeGroupFCs.length - 1">Next</button>
+        </div>
+      </div>
+
+      <div *ngIf="activeGroupFCs.length === 0" class="empty-state">
+        <ion-icon name="card-outline" class="empty-icon"></ion-icon>
+        <p>No cards in this set yet.</p>
+        <button class="fc-add-inline-btn" (click)="openAddFlashcardManual()">
+          <ion-icon name="add"></ion-icon> Add First Card
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'folders'" class="section folders-section">
+      <div class="section-top-header">
+        <h2 class="section-title">Folders</h2>
+      </div>
+      <div class="add-folder-row">
+        <input [(ngModel)]="newFolderName" class="folder-input" placeholder="New folder name..." type="text"
+          (keydown.enter)="createFolder(newFolderName)" />
+        <button class="folder-add-btn" (click)="createFolder(newFolderName)">Add</button>
+      </div>
+      <div *ngIf="folders.length === 0" class="empty-state">
+        <ion-icon name="folder-open-outline" class="empty-icon"></ion-icon>
+        <p>No folders yet. Create one above!</p>
+      </div>
+      <div class="folders-grid">
+        <div *ngFor="let folder of folders; trackBy: trackById"
+          class="folder-card" (click)="openFolder(folder.name)">
+          <div class="folder-icon-wrap">
+            <ion-icon name="folder" class="folder-icon"></ion-icon>
+          </div>
+          <div class="folder-info">
+            <span *ngIf="editingFolderName !== folder.name" class="folder-name">{{ folder.name }}</span>
+            <input *ngIf="editingFolderName === folder.name"
+              [(ngModel)]="folderEditValue" class="folder-edit-input"
+              (click)="$event.stopPropagation()" type="text" />
+            <span class="folder-count">{{ getNotesInFolder(folder.name).length }} notes</span>
+          </div>
+          <div class="folder-actions" (click)="$event.stopPropagation()">
+            <button *ngIf="editingFolderName !== folder.name"
+              class="folder-action-btn edit" (click)="startEditFolder(folder.name)">
+              <ion-icon name="pencil-outline"></ion-icon>
+            </button>
+            <button *ngIf="editingFolderName === folder.name"
+              class="folder-action-btn save" (click)="saveEditFolder(folder.name)">
+              <ion-icon name="checkmark-outline"></ion-icon>
+            </button>
+            <button class="folder-action-btn del" (click)="deleteFolder(folder.name); $event.stopPropagation()">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!--  FOLDER DETAIL -->
+    <div *ngIf="currentSection === 'folderDetail'" class="section notes-section">
+      <div class="folder-detail-header">
+        <button class="icon-btn" (click)="currentSection = 'folders'">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <div class="folder-detail-title-row">
+          <ion-icon name="folder" class="fd-title-icon"></ion-icon>
+          <h2 class="section-title" style="margin:0">{{ activeFolderName }}</h2>
+        </div>
+        <div style="width:36px"></div>
+      </div>
+
+      <div class="notes-list-content" style="margin-top:8px">
+        <div *ngIf="folderNotes.length === 0" class="empty-state">
+          <ion-icon name="document-outline" class="empty-icon"></ion-icon>
+          <p>No notes here yet. Tap + to add!</p>
+        </div>
+
+        <div *ngFor="let note of folderNotes; trackBy: trackById" class="note-swipe-wrapper"
+          [class.swiped]="isSwiped(note.id)"
+          (touchstart)="onSwipeStart($event)"
+          (touchend)="onSwipeEnd(note.id, $event)"
+          (mousedown)="onSwipeStart($event)"
+          (mouseup)="onSwipeEnd(note.id, $event)">
+
+          <div class="swipe-actions">
+            <button class="swipe-btn fav-btn" (click)="toggleFavorite(note); $event.stopPropagation()">
+              <ion-icon [name]="note.favorite ? 'star' : 'star-outline'"></ion-icon>
+            </button>
+            <button class="swipe-btn del-btn" (click)="deleteNote(note.id); $event.stopPropagation()">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+            <button class="swipe-btn menu-btn" (click)="openMoveNoteMenu(note); $event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </button>
+          </div>
+
+          <div class="note-card" (click)="!isSwiped(note.id) && editNote(note, 'folderDetail')">
+            <div class="note-card-body">
+              <div class="note-card-top">
+                <div class="note-card-title">{{ note.title }}</div>
+              </div>
+              <div class="note-card-preview">{{ note.content | slice:0:70 }}{{ note.content.length > 70 ? '…' : '' }}</div>
+              <div class="note-card-meta">{{ formatDate(note.editedAt) }}</div>
+            </div>
+            <div class="note-card-actions">
+              <button class="nc-action-btn spark-btn" (click)="$event.stopPropagation(); sparkNote(note)">
+                <ion-icon name="sparkles-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'premium'" class="section premium-section">
+      <div class="app-header premium-fixed-header premium-no-logo-header">
+        <button class="premium-header-btn">
+          <ion-icon name="star"></ion-icon> Premium
+        </button>
+      </div>
+      <div class="premium-scroll-content">
+        <div class="premium-hero">
+          <ion-icon name="trophy-outline" class="trophy-icon"></ion-icon>
+          <h2 class="hero-title">Go Premium!</h2>
+          <p class="hero-sub">Unlock unlimited flashcards and game modes</p>
+          <p class="hero-price">$1 USD/month</p>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card fc-purple">
+            <ion-icon name="infinite-outline"></ion-icon>
+            <p class="feat-title">Unlimited Cards</p>
+            <p class="feat-sub">No limits ever</p>
+          </div>
+          <div class="feature-card fc-blue">
+            <ion-icon name="color-palette-outline"></ion-icon>
+            <p class="feat-title">Custom Designs</p>
+            <p class="feat-sub">Change color &amp; style</p>
+          </div>
+          <div class="feature-card fc-teal">
+            <ion-icon name="game-controller-outline"></ion-icon>
+            <p class="feat-title">Game Modes</p>
+            <p class="feat-sub">Match, MC &amp; more</p>
+          </div>
+          <div class="feature-card fc-orange">
+            <ion-icon name="people-outline"></ion-icon>
+            <p class="feat-title">Multiplayer</p>
+            <p class="feat-sub">Study with friends</p>
+          </div>
+          <div class="feature-card fc-green">
+            <ion-icon name="timer-outline"></ion-icon>
+            <p class="feat-title">Timed Quiz</p>
+            <p class="feat-sub">Beat the clock</p>
+          </div>
+          <div class="feature-card fc-red">
+            <ion-icon name="trophy-outline"></ion-icon>
+            <p class="feat-title">Rankings</p>
+            <p class="feat-sub">Compete &amp; win</p>
+          </div>
+        </div>
+        <button class="upgrade-btn" (click)="activatePremium()">Go Premium</button>
+        <div class="premium-bottom-spacer"></div>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'premiumActive'" class="section premium-section">
+      <div class="app-header premium-fixed-header premium-active-header premium-no-logo-header">
+        <span class="premium-active-badge">
+          <ion-icon name="star"></ion-icon> Premium Active
+        </span>
+      </div>
+      <div class="premium-scroll-content">
+        <div class="premium-active-content">
+          <div class="pa-hero">
+            <ion-icon name="checkmark-circle" class="pa-check-icon"></ion-icon>
+            <h2 class="pa-title">You're Premium!</h2>
+            <p class="pa-sub">All features are unlocked.</p>
+          </div>
+          <div class="pa-features-list">
+            <div class="pa-feature-row" *ngFor="let f of premiumActiveFeatures">
+              <ion-icon name="checkmark-circle" class="pa-row-check"></ion-icon>
+              <span>{{ f }}</span>
+            </div>
+          </div>
+          <button class="disable-premium-btn" (click)="deactivatePremium()">Disable Premium</button>
+          <div class="premium-bottom-spacer"></div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'gameFeatures'" class="section game-section">
+      <div class="app-header">
+        <button class="icon-btn header-back-btn" (click)="goHome()">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <span class="logo-text" style="color:#fff;font-size:18px">Game Features</span>
+        <div style="width:36px"></div>
+      </div>
+      <div class="game-content">
+        <div *ngFor="let g of gameFeatures" class="game-feature-card"
+          [style.background]="g.color"
+          (click)="startGame(g.mode)">
+          <div class="game-feature-top">
+            <ion-icon [name]="g.icon" class="game-feature-icon"></ion-icon>
+            <span class="game-feature-title">{{ g.title }}</span>
+          </div>
+          <p class="game-feature-desc">{{ g.desc }}</p>
+          <p *ngIf="!isPremium" class="game-feature-lock">🔒 Premium only</p>
+        </div>
+        <button *ngIf="!isPremium" class="upgrade-btn" (click)="goPremium()">
+          Unlock All Games — Go Premium
+        </button>
+      </div>
+    </div>
+    <div *ngIf="currentSection === 'gameSetSelect'" class="section game-section">
+      <div class="app-header">
+        <button class="icon-btn header-back-btn" (click)="currentSection = 'gameFeatures'">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <span class="logo-text" style="color:#fff;font-size:18px">{{ currentGameTitle }}</span>
+
+        <button class="timer-header-btn" (click)="showGameTimerPicker = !showGameTimerPicker">
+          <ion-icon name="timer-outline"></ion-icon>
+          {{ sessionTimerSeconds }}s
+        </button>
+      </div>
+
+      <div *ngIf="showGameTimerPicker" class="game-timer-picker session-timer-picker">
+        <div class="session-timer-picker-label">
+          <ion-icon name="hourglass-outline"></ion-icon>
+          Session time limit:
+        </div>
+        <div class="session-timer-options">
+          <button *ngFor="let t of sessionTimerOptions"
+            class="session-timer-btn"
+            [class.active-session-timer]="sessionTimerSeconds === t"
+            (click)="sessionTimerSeconds = t; showGameTimerPicker = false">
+            {{ t }}s
+          </button>
+        </div>
+      </div>
+
+      <div class="session-timer-info-banner">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        <span>Entire session limited to <strong>{{ sessionTimerSeconds }} seconds</strong>. Timer starts when quiz begins.</span>
+      </div>
+
+      <div class="game-content">
+        <p class="game-sub-label">Choose a flashcard set:</p>
+        <div *ngFor="let g of fcGroups; trackBy: trackByNoteId"
+          class="fc-set-card game-set-card"
+          (click)="selectGameSet(g.noteId)">
+          <div class="fc-set-card-body">
+            <div class="fc-set-icon">
+              <ion-icon name="card-outline"></ion-icon>
+            </div>
+            <div class="fc-set-info">
+              <div class="fc-set-title">{{ g.label }}</div>
+              <div class="fc-set-count">{{ g.fcs.length }} cards</div>
+            </div>
+          </div>
+          <ion-icon name="chevron-forward-outline" class="fc-set-chevron"></ion-icon>
+        </div>
+        <div *ngIf="fcGroups.length === 0" class="empty-state">
+          <ion-icon name="card-outline" class="empty-icon"></ion-icon>
+          <p>No flashcard sets. Spark a note first!</p>
+        </div>
+      </div>
+    </div>
+    <!-- GAME: PLAYER SETUP  -->
+    <div *ngIf="currentSection === 'gamePlayerSetup'" class="section game-section">
+      <div class="app-header">
+        <button class="icon-btn header-back-btn" (click)="currentSection = 'gameSetSelect'">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <span class="logo-text" style="color:#fff;font-size:18px">Players</span>
+        <div style="width:36px"></div>
+      </div>
+
+      <div class="game-players-content">
+        <div *ngFor="let player of gamePlayers; let i = index; trackBy: trackByIndex"
+          class="player-card">
+          <div class="player-avatar">{{ player.avatar }}</div>
+          <div class="player-name-wrap">
+            <span *ngIf="!player.editing" class="player-name">{{ player.name }}</span>
+            <input *ngIf="player.editing"
+              [(ngModel)]="player.name"
+              class="player-name-input"
+              (blur)="player.editing = false"
+              (keydown.enter)="player.editing = false" />
+          </div>
+          <div class="player-actions">
+            <button class="player-action-btn" (click)="player.editing = true">
+              <ion-icon name="pencil-outline"></ion-icon>
+            </button>
+            <button class="player-action-btn del" (click)="removePlayer(i)">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+        <button class="add-player-btn" (click)="addPlayer()" *ngIf="gamePlayers.length < 7">
+          <ion-icon name="add"></ion-icon> Add Player
+        </button>
+      </div>
+      <div class="game-start-footer">
+        <button class="start-game-btn" (click)="initiateRPS()" [disabled]="gamePlayers.length < 1">
+          Start Play
+        </button>
+      </div>
+    </div>
+    <!-- ROCK PAPER SCISSORS SCREEN -->
+    <div *ngIf="currentSection === 'gameRPS'" class="section game-section rps-section">
+      <div class="app-header">
+        <button class="icon-btn header-back-btn" (click)="currentSection = 'gamePlayerSetup'">
+          <ion-icon name="arrow-back"></ion-icon>
+        </button>
+        <span class="logo-text" style="color:#fff;font-size:18px">Who Goes First?</span>
+        <div style="width:36px"></div>
+      </div>
+
+      <div class="rps-content">
+
+        <div *ngIf="rpsPhase === 'idle'" class="rps-idle">
+          <p class="rps-instruction">Pick your move for Round {{ rpsRoundNumber }}</p>
+          <div class="rps-choices">
+            <button class="rps-choice-btn" [class.rps-selected]="rpsPlayerChoice === 'rock'"
+              (click)="selectRPSChoice('rock')">
+              <span class="rps-emoji">✊</span>
+              <span class="rps-label">Rock</span>
+            </button>
+            <button class="rps-choice-btn" [class.rps-selected]="rpsPlayerChoice === 'paper'"
+              (click)="selectRPSChoice('paper')">
+              <span class="rps-emoji">🖐️</span>
+              <span class="rps-label">Paper</span>
+            </button>
+            <button class="rps-choice-btn" [class.rps-selected]="rpsPlayerChoice === 'scissors'"
+              (click)="selectRPSChoice('scissors')">
+              <span class="rps-emoji">✌️</span>
+              <span class="rps-label">Scissors</span>
+            </button>
+          </div>
+          <div *ngIf="rpsCurrentPicker" class="rps-picker-label">
+            <span class="rps-picker-avatar">{{ rpsCurrentPicker.avatar }}</span>
+            <span class="rps-picker-name">{{ rpsCurrentPicker.name }} is picking…</span>
+          </div>
+          <button class="start-game-btn rps-confirm-btn"
+            [disabled]="!rpsPlayerChoice"
+            (click)="confirmRPSChoice()">
+            Confirm Choice
+          </button>
+        </div>
+
+        <div *ngIf="rpsPhase === 'animating'" class="rps-animating">
+          <div class="rps-battle-arena">
+            <div class="rps-battle-side rps-left">
+              <div class="rps-battle-emoji rps-shake">{{ getRPSEmoji(rpsPlayerChoice) }}</div>
+              <span class="rps-battle-name">{{ rpsCurrentPicker?.name }}</span>
+            </div>
+            <div class="rps-vs-badge">VS</div>
+            <div class="rps-battle-side rps-right">
+              <div class="rps-battle-emoji rps-shake-delay">{{ rpsCountdownEmoji }}</div>
+              <span class="rps-battle-name">Random</span>
+            </div>
+          </div>
+          <div class="rps-countdown-display">{{ rpsCountdownText }}</div>
+        </div>
+
+        <div *ngIf="rpsPhase === 'result'" class="rps-result">
+          <div class="rps-result-battle">
+            <div class="rps-result-side">
+              <div class="rps-result-emoji">{{ getRPSEmoji(rpsPlayerChoice) }}</div>
+              <span class="rps-result-name">{{ rpsCurrentPicker?.name }}</span>
+              <span class="rps-result-move">{{ rpsPlayerChoice }}</span>
+            </div>
+            <div class="rps-result-outcome-badge" [ngClass]="rpsOutcomeClass">
+              {{ rpsOutcomeText }}
+            </div>
+            <div class="rps-result-side">
+              <div class="rps-result-emoji">{{ getRPSEmoji(rpsComputerChoice) }}</div>
+            <span class="rps-result-name">{{ rpsOpponent?.name }}</span>             
+            <span class="rps-result-move">{{ rpsComputerChoice }}</span>
+            </div>
+          </div>
+
+          <div *ngIf="rpsWinner" class="rps-winner-announce">
+            <span class="rps-winner-crown">👑</span>
+            <span class="rps-winner-avatar">{{ rpsWinner.avatar }}</span>
+            <p class="rps-winner-text">{{ rpsWinner.name }} goes first!</p>
+          </div>
+
+          <div *ngIf="!rpsWinner" class="rps-tie-announce">
+            <span class="rps-tie-emoji">🤝</span>
+            <p class="rps-tie-text">It's a tie! Try again.</p>
+          </div>
+
+          <button class="start-game-btn rps-next-btn" (click)="proceedAfterRPS()">
+            {{ rpsWinner ? 'Start Game!' : 'Pick Again' }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'gameQuestion'" class="section game-section">
+
+      <div class="game-q-header">
+        <div class="game-q-meta">
+          <span *ngIf="currentGameMode === 'multiplayer'" class="game-q-player">{{ currentQuestionPlayer?.avatar }} {{ currentQuestionPlayer?.name }}</span>
+          <span *ngIf="currentGameMode !== 'multiplayer'" class="game-q-player">{{ currentGameTitle }}</span>
+          <span class="game-q-progress">{{ currentQuestionIndex + 1 }} / {{ gameQuestions.length }}</span>
+        </div>
+
+        <div class="game-session-timer" [class.session-timer-urgent]="sessionTimeLeft <= 5" [class.session-timer-warning]="sessionTimeLeft <= 10 && sessionTimeLeft > 5">
+          <ion-icon name="hourglass-outline"></ion-icon>
+          <span class="session-timer-value">{{ formatSessionTime(sessionTimeLeft) }}</span>
+        </div>
+      </div>
+
+      <div class="session-timer-bar-wrap">
+        <div class="session-timer-bar-fill"
+          [class.session-bar-warning]="sessionTimeLeft <= 10 && sessionTimeLeft > 5"
+          [class.session-bar-urgent]="sessionTimeLeft <= 5"
+          [style.width.%]="sessionTimerProgressPercent"></div>
+      </div>
+
+      <div class="game-q-progress-bar">
+        <div class="game-q-progress-fill"
+          [style.width.%]="((currentQuestionIndex + 1) / gameQuestions.length) * 100"></div>
+      </div>
+
+      <div class="game-question-card">
+
+        <div *ngIf="currentGameMode === 'matching'" class="game-matching-full">
+          <p class="game-match-instruction">
+            <ion-icon name="git-merge-outline"></ion-icon>
+            Match the correct answer
+          </p>
+          <p class="game-match-sub">Select a term, then its matching definition. Tap again to deselect.</p>
+
+          <div class="matching-columns">
+            <div class="matching-col">
+              <p class="matching-col-label">Terms</p>
+              <button *ngFor="let term of matchingTerms"
+                class="matching-btn matching-term-btn"
+                [class.match-selected]="selectedMatchTerm === term"
+                [class.match-correct]="matchSubmitted && submittedCorrectTerms.has(term)"
+                [class.match-wrong]="matchSubmitted && submittedWrongTerms.has(term)"
+                [class.match-paired]="getPairForTerm(term) !== null"
+                (click)="selectMatchTerm(term)">
+                <span class="match-item-text">{{ term }}</span>
+                <span *ngIf="getPairForTerm(term) !== null" class="match-pair-indicator">
+                  {{ getPairIndex(term) + 1 }}
+                </span>
+              </button>
+            </div>
+            <div class="matching-col">
+              <p class="matching-col-label">Definitions</p>
+              <button *ngFor="let def of matchingDefs"
+                class="matching-btn matching-def-btn"
+                [class.match-selected]="selectedMatchDef === def"
+                [class.match-correct]="matchSubmitted && submittedCorrectDefs.has(def)"
+                [class.match-wrong]="matchSubmitted && submittedWrongDefs.has(def)"
+                [class.match-paired]="getPairForDef(def) !== null"
+                (click)="selectMatchDef(def)">
+                <span class="match-item-text">{{ def }}</span>
+                <span *ngIf="getPairForDef(def) !== null" class="match-pair-indicator">
+                  {{ getPairIndex(getPairTermForDef(def)) + 1 }}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="match-pairs-summary" *ngIf="userMatchPairs.length > 0">
+            <p class="match-pairs-label">Your pairs ({{ userMatchPairs.length }}/{{ matchingTerms.length }}):</p>
+            <div *ngFor="let pair of userMatchPairs; let pi = index" class="match-pair-row"
+              [class.match-pair-correct]="matchSubmitted && isPairCorrect(pair)"
+              [class.match-pair-wrong]="matchSubmitted && !isPairCorrect(pair)">
+              <span class="match-pair-num">{{ pi + 1 }}</span>
+              <span class="match-pair-term">{{ pair.term }}</span>
+              <ion-icon name="arrow-forward-outline" class="match-pair-arrow"></ion-icon>
+              <span class="match-pair-def">{{ pair.def }}</span>
+              <ion-icon *ngIf="matchSubmitted && isPairCorrect(pair)" name="checkmark-circle" class="match-pair-result correct"></ion-icon>
+              <ion-icon *ngIf="matchSubmitted && !isPairCorrect(pair)" name="close-circle" class="match-pair-result wrong"></ion-icon>
+            </div>
+          </div>
+
+          <div class="match-actions">
+            <button *ngIf="!matchSubmitted" class="match-submit-btn"
+              [disabled]="userMatchPairs.length < matchingTerms.length"
+              (click)="submitMatches()">
+              <ion-icon name="checkmark-done-outline"></ion-icon>
+              Check Answers
+            </button>
+            <button *ngIf="matchSubmitted" class="match-next-btn" (click)="nextQuestion()">
+              See Scores →
+            </button>
+          </div>
+        </div>
+
+        <!-- NON-MATCHING modes: show question text + options as before -->
+        <ng-container *ngIf="currentGameMode !== 'matching'">
+          <p class="game-question-label">Question</p>
+          <p class="game-question-text">{{ gameQuestions[currentQuestionIndex]?.question }}</p>
+
+          <!-- Multiple choice options -->
+          <div *ngIf="currentGameMode === 'multipleChoice' || currentGameMode === 'timedQuiz'"
+            class="game-mc-options">
+            <button *ngFor="let opt of currentMCOptions; let oi = index"
+              class="game-mc-btn"
+              [class.mc-correct]="showAnswer && opt === gameQuestions[currentQuestionIndex]?.answer"
+              [class.mc-wrong]="showAnswer && selectedMCAnswer === opt && opt !== gameQuestions[currentQuestionIndex]?.answer"
+              (click)="selectMCAnswer(opt)"
+              [disabled]="showAnswer">
+              {{ ['A','B','C','D'][oi] }}. {{ opt }}
+            </button>
+          </div>
+
+          <div *ngIf="currentGameMode === 'multiplayer'">
+            <button *ngIf="!showAnswer" class="show-answer-btn" (click)="revealAnswer()">
+              Show Answer
+            </button>
+            <div *ngIf="showAnswer" class="answer-reveal">
+              <p class="answer-label">Answer</p>
+              <p class="answer-text">{{ gameQuestions[currentQuestionIndex]?.answer }}</p>
+              <div class="answer-action-row">
+                <button class="ans-wrong-btn" (click)="markAnswer(false)">
+                  <ion-icon name="close-outline"></ion-icon> Wrong
+                </button>
+                <button class="ans-correct-btn" (click)="markAnswer(true)">
+                  <ion-icon name="checkmark-outline"></ion-icon> Correct
+                </button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <div class="game-q-footer">
+        <button class="game-end-btn" (click)="endGame()">End</button>
+        <button class="game-next-btn"
+          *ngIf="currentGameMode !== 'matching' && (showAnswer || currentGameMode === 'timedQuiz')"
+          (click)="nextQuestion()">
+          Next →
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="currentSection === 'gameEnd'" class="section game-section">
+
+      <div class="app-header game-end-header">
+        <button class="icon-btn header-back-btn game-end-close-btn" (click)="currentSection = 'gameFeatures'">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+        <span class="game-end-header-title">Results</span>
+        <div class="game-end-header-spacer"></div>
+      </div>
+
+      <div class="confetti-container">
+        <div *ngFor="let c of confettiPieces" class="confetti-piece"
+          [style.left.%]="c.x"
+          [style.background]="c.color"
+          [style.animation-delay.ms]="c.delay"></div>
+      </div>
+
+      <div class="game-end-content">
+        <div class="game-end-hero">
+          <span class="game-end-emoji">🎉</span>
+          <h2 class="game-end-title">Finished!</h2>
+
+          <div *ngIf="currentGameMode === 'multiplayer' && rankedPlayers.length > 0" class="game-end-winner">
+            <div class="game-end-winner-avatar">
+              <span class="winner-crown">👑</span>
+              <span class="winner-emoji">{{ rankedPlayers[0].avatar }}</span>
+            </div>
+            <p class="game-end-winner-name">{{ rankedPlayers[0].name }}</p>
+          </div>
+        </div>
+
+        <div class="game-end-time-summary">
+          <ion-icon name="timer-outline"></ion-icon>
+          <span>Session: <strong>{{ sessionTimerSeconds - sessionTimeLeft }}s used</strong> of {{ sessionTimerSeconds }}s</span>
+        </div>
+
+        <div class="game-end-stats">
+          <div class="game-stat-card correct-stat">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            <span class="stat-num">{{ gameCorrectCount }}</span>
+            <span class="stat-label">Correct</span>
+          </div>
+          <div class="game-stat-card wrong-stat">
+            <ion-icon name="close-circle-outline"></ion-icon>
+            <span class="stat-num">{{ gameWrongCount }}</span>
+            <span class="stat-label">Wrong</span>
+          </div>
+        </div>
+
+        <div *ngIf="currentGameMode === 'multiplayer'" class="game-rankings">
+          <h3 class="rankings-title">Rankings</h3>
+          <div *ngFor="let p of rankedPlayers; let i = index" class="ranking-row">
+            <span class="rank-num">{{ i + 1 }}</span>
+            <span class="rank-avatar">{{ p.avatar }}</span>
+            <span class="rank-name">{{ p.name }}</span>
+            <span class="rank-score">{{ p.score }} pts</span>
+          </div>
+        </div>
+
+        <button class="start-game-btn" (click)="currentSection = 'gameFeatures'" style="margin-top:20px">
+          Back to Games
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="showFlashcardModal" class="modal-overlay" (click)="closeFlashcardModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>{{ editingFlashcardId ? 'Edit Flashcard' : 'New Flashcard' }}</h3>
+          <button class="icon-btn" (click)="closeFlashcardModal()">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+        <div class="modal-body">
+          <input [(ngModel)]="fcModalQuestion" class="modal-input" placeholder="Question..." type="text" />
+          <input [(ngModel)]="fcModalAnswer" class="modal-input fc-answer-input" placeholder="Answer..." type="text" />
+          <ng-container *ngIf="editingFlashcardId">
+            <div class="fc-color-row">
+              <button *ngFor="let c of fcPastelColors"
+                class="fc-color-swatch"
+                [class.active-color]="fcModalColor === c"
+                [style.background]="c"
+                (click)="fcModalColor = c"></button>
+              <button class="fc-color-swatch fc-color-reset"
+                [class.active-color]="fcModalColor === '#ffffff'"
+                (click)="fcModalColor = '#ffffff'">↺</button>
+            </div>
+            <div class="fc-color-preview" [style.background]="fcModalColor !== '#ffffff' ? fcModalColor : '#f8f8fc'">
+              <span>Preview</span>
+            </div>
+          </ng-container>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-cancel-btn" (click)="closeFlashcardModal()">Cancel</button>
+          <button class="modal-save-btn" (click)="saveFlashcard()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="showMoveNoteModal" class="modal-overlay" (click)="showMoveNoteModal = false">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Move to Folder</h3>
+          <button class="icon-btn" (click)="showMoveNoteModal = false">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+        <div class="modal-body">
+          <button *ngFor="let fn of allFolderNames"
+            class="dot-folder-item"
+            [class.active-folder-item]="moveNoteTarget?.folder === fn"
+            (click)="moveNote(fn)">
+            <ion-icon name="folder-outline" class="dot-folder-icon"></ion-icon>
+            {{ fn }}
+            <ion-icon *ngIf="moveNoteTarget?.folder === fn" name="checkmark-outline" class="dot-check-icon"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav" *ngIf="showBottomNav">
+      <button class="nav-item" [class.active]="isNavActive('home')" (click)="goHome()">
+        <ion-icon [name]="isNavActive('home') ? 'home' : 'home-outline'"></ion-icon>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" [class.active]="isNavActive('notes')" (click)="goNotes()">
+        <ion-icon [name]="isNavActive('notes') ? 'document-text' : 'document-text-outline'"></ion-icon>
+        <span>Notes</span>
+      </button>
+      <button class="nav-item" [class.active]="isNavActive('flashcards')" (click)="goFlashcardSets()">
+        <ion-icon [name]="isNavActive('flashcards') ? 'card' : 'card-outline'"></ion-icon>
+        <span>Cards</span>
+      </button>
+      <button class="nav-item" [class.active]="isNavActive('folders')" (click)="goFolders()">
+        <ion-icon [name]="isNavActive('folders') ? 'folder' : 'folder-outline'"></ion-icon>
+        <span>Folders</span>
+      </button>
+    </div>
+    <button class="circular-fab"
+      *ngIf="showFAB"
+      (click)="openNewNote(activeFolderName || 'General')">
+      <ion-icon name="add"></ion-icon>
+    </button>
+    <div *ngIf="toastMessage" class="toast-msg">
+      <ion-icon name="checkmark-circle-outline"></ion-icon>
+      {{ toastMessage }}
+    </div>
+    <div *ngIf="showDotMenu" class="dot-menu-backdrop" (click)="showDotMenu = false"></div>
+  </div>
+</ion-content>
