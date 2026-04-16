@@ -1,0 +1,23 @@
+:root {
+  --ion-color-primary: #8b5cf6;
+  --ion-color-primary-rgb: 139, 92, 246;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-shade: #7a51d8;
+  --ion-color-primary-tint: #976df7;
+  --ion-background-color: #f4f4f8;
+  --ion-text-color: #1a1a2e;
+  --ion-font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+ion-content {
+  --padding-bottom: 24px;
+}
+
+.bf-toast {
+  --border-radius: 14px;
+  --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
